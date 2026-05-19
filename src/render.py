@@ -5,33 +5,98 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from src.board import BoardLayout, marker_image
+from src.board import BoardLayout, TagSpec, marker_image
 from utils.camera import CameraModel
 from utils.geometry import rvec_tvec_to_matrix
 
 
-def render_board_texture(layout: BoardLayout, width_px: int = 2480) -> np.ndarray:
+def _as_bgr(color: int | tuple[int, int, int]) -> tuple[int, int, int]:
+    if isinstance(color, int):
+        return (int(color), int(color), int(color))
+    return (int(color[0]), int(color[1]), int(color[2]))
+
+
+def _world_xy_to_texture(
+    points_w: np.ndarray,
+    layout: BoardLayout,
+    width_px: int,
+    height_px: int,
+) -> np.ndarray:
+    pts = np.asarray(points_w, dtype=np.float64)
+    x = (pts[:, 0] + layout.paper_width_m / 2.0) / layout.paper_width_m * (width_px - 1)
+    y = (layout.paper_height_m / 2.0 - pts[:, 1]) / layout.paper_height_m * (height_px - 1)
+    return np.column_stack([x, y]).astype(np.float32)
+
+
+def _tag_paper_corners(tag: TagSpec, paper_size_m: tuple[float, float]) -> np.ndarray:
+    corners = np.asarray(tag.corners, dtype=np.float64)
+    center = np.asarray(tag.center, dtype=np.float64).reshape(3)
+    x_axis = corners[1] - corners[0]
+    y_axis = corners[0] - corners[3]
+    x_axis /= np.linalg.norm(x_axis)
+    y_axis /= np.linalg.norm(y_axis)
+    half_w = float(paper_size_m[0]) * 0.5
+    half_h = float(paper_size_m[1]) * 0.5
+    return np.array(
+        [
+            center - half_w * x_axis + half_h * y_axis,
+            center + half_w * x_axis + half_h * y_axis,
+            center + half_w * x_axis - half_h * y_axis,
+            center - half_w * x_axis - half_h * y_axis,
+        ],
+        dtype=np.float64,
+    )
+
+
+def _warp_quad(texture: np.ndarray, image: np.ndarray, dst_quad: np.ndarray) -> None:
+    src_h, src_w = image.shape[:2]
+    src = np.array(
+        [[0, 0], [src_w - 1, 0], [src_w - 1, src_h - 1], [0, src_h - 1]],
+        dtype=np.float32,
+    )
+    homography = cv2.getPerspectiveTransform(src, np.asarray(dst_quad, dtype=np.float32))
+    tex_h, tex_w = texture.shape[:2]
+    warped = cv2.warpPerspective(
+        image,
+        homography,
+        (tex_w, tex_h),
+        flags=cv2.INTER_NEAREST,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(0, 0, 0),
+    )
+    mask_src = np.full((src_h, src_w), 255, dtype=np.uint8)
+    mask = cv2.warpPerspective(
+        mask_src,
+        homography,
+        (tex_w, tex_h),
+        flags=cv2.INTER_NEAREST,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+    texture[mask > 0] = warped[mask > 0]
+
+
+def render_board_texture(
+    layout: BoardLayout,
+    width_px: int = 2480,
+    background: int | tuple[int, int, int] = 255,
+    per_tag_paper_size_m: tuple[float, float] | None = None,
+    paper_color: int | tuple[int, int, int] = 255,
+) -> np.ndarray:
     height_px = int(round(width_px * layout.paper_height_m / layout.paper_width_m))
-    texture = np.full((height_px, width_px, 3), 255, dtype=np.uint8)
-    marker_px = max(40, int(round(width_px * layout.nominal_tag_size_m / layout.paper_width_m)))
+    texture = np.full((height_px, width_px, 3), _as_bgr(background), dtype=np.uint8)
+    marker_px = max(60, int(round(width_px * layout.nominal_tag_size_m / layout.paper_width_m)))
+
+    if per_tag_paper_size_m is not None:
+        for tag in layout.tags:
+            paper_quad = _world_xy_to_texture(_tag_paper_corners(tag, per_tag_paper_size_m), layout, width_px, height_px)
+            cv2.fillConvexPoly(texture, np.round(paper_quad).astype(np.int32), _as_bgr(paper_color))
 
     for tag in layout.tags:
         marker = marker_image(layout.family, tag.tag_id, marker_px)
         marker_bgr = cv2.cvtColor(marker, cv2.COLOR_GRAY2BGR)
-        center_x = (float(tag.center[0]) + layout.paper_width_m / 2.0) / layout.paper_width_m
-        center_y = (layout.paper_height_m / 2.0 - float(tag.center[1])) / layout.paper_height_m
-        cx = int(round(center_x * width_px))
-        cy = int(round(center_y * height_px))
-        half = marker_px // 2
-        x0 = max(0, cx - half)
-        y0 = max(0, cy - half)
-        x1 = min(width_px, x0 + marker_px)
-        y1 = min(height_px, y0 + marker_px)
-        sx0 = 0
-        sy0 = 0
-        sx1 = x1 - x0
-        sy1 = y1 - y0
-        texture[y0:y1, x0:x1] = marker_bgr[sy0:sy1, sx0:sx1]
+        dst = _world_xy_to_texture(tag.corners, layout, width_px, height_px)
+        _warp_quad(texture, marker_bgr, dst)
     return texture
 
 

@@ -75,7 +75,12 @@ def calibrate_from_images(
             used_images=tuple(used_images),
         )
 
-    flags = cv2.CALIB_ZERO_TANGENT_DIST | cv2.CALIB_FIX_K3
+    flags = (
+        cv2.CALIB_ZERO_TANGENT_DIST
+        | cv2.CALIB_FIX_K1
+        | cv2.CALIB_FIX_K2
+        | cv2.CALIB_FIX_K3
+    )
     criteria = (
         cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
         100,
@@ -105,4 +110,3 @@ def calibrate_from_images(
         rvecs=tuple(np.asarray(r, dtype=np.float64).reshape(3, 1) for r in rvecs),
         tvecs=tuple(np.asarray(t, dtype=np.float64).reshape(3, 1) for t in tvecs),
     )
-
