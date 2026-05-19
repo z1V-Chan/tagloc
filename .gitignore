@@ -31,3 +31,5 @@ outputs/
 
 # Notebook checkpoints
 .ipynb_checkpoints/
+
+data

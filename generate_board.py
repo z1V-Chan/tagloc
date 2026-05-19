@@ -15,6 +15,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pdf-name", default="a4_apriltag_board.pdf")
     parser.add_argument("--png-name", default="a4_apriltag_board.png")
     parser.add_argument("--layout-name", default="board_layout.json")
+    parser.add_argument(
+        "--draw-axes",
+        action="store_true",
+        help="Draw faint center axes for debugging. Disabled by default for clean printing.",
+    )
     return parser.parse_args()
 
 
@@ -27,6 +32,7 @@ def main() -> None:
         layout,
         out_dir / args.pdf_name,
         out_dir / args.png_name,
+        draw_axes=args.draw_axes,
     )
     print(f"layout: {layout_path}")
     print(f"pdf: {Path(pdf_path)}")
@@ -35,4 +41,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

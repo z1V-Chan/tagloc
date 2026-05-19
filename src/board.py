@@ -159,6 +159,7 @@ def save_board_pdf_and_preview(
     pdf_path: str | Path,
     png_path: str | Path,
     dpi: int = 300,
+    draw_axes: bool = False,
 ) -> tuple[Path, Path]:
     pdf = Path(pdf_path)
     png = Path(png_path)
@@ -174,18 +175,19 @@ def save_board_pdf_and_preview(
     ax.set_aspect("equal")
     ax.axis("off")
 
-    ax.plot(
-        [-layout.paper_width_m / 2.0, layout.paper_width_m / 2.0],
-        [0, 0],
-        color="0.88",
-        linewidth=0.3,
-    )
-    ax.plot(
-        [0, 0],
-        [-layout.paper_height_m / 2.0, layout.paper_height_m / 2.0],
-        color="0.88",
-        linewidth=0.3,
-    )
+    if draw_axes:
+        ax.plot(
+            [-layout.paper_width_m / 2.0, layout.paper_width_m / 2.0],
+            [0, 0],
+            color="0.88",
+            linewidth=0.3,
+        )
+        ax.plot(
+            [0, 0],
+            [-layout.paper_height_m / 2.0, layout.paper_height_m / 2.0],
+            color="0.88",
+            linewidth=0.3,
+        )
 
     marker_px = 800
     for tag in layout.tags:

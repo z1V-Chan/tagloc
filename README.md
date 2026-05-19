@@ -24,6 +24,7 @@ default nominal tag edge size is `0.045m`.
 
 - `generate_board.py`: generate the A4 board PDF, PNG preview, and layout JSON.
 - `localize_camera.py`: estimate camera pose from real or synthetic images.
+- `export_scene.py`: export board markers and estimated camera poses to PLY.
 - `render_test.py`: render synthetic board images and validate localization.
 - `test.py`: end-to-end smoke test.
 - `src/`: board, detection, pose, calibration, and rendering logic.
@@ -64,6 +65,10 @@ This creates:
 Print the PDF at actual size when possible. If the printer scales the page,
 measure the edge size of one printed tag and pass that measured value to
 localization with `--tag-size-m`.
+
+The generated PDF is clean by default: no center crosshair or reference axes are
+drawn, to avoid interfering with tag detection. For debugging only, pass
+`--draw-axes` to `generate_board.py`.
 
 Example: if the printed tag edge is `46.5mm`, use:
 

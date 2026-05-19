@@ -97,6 +97,10 @@ smoke test passed: max center error 0.001767m, max rotation error 0.126815deg
 - `localize_estimated_camera.json`: camera estimated from the first 10 images.
 - `metrics.json`: primary test metrics.
 
+The generated PDF/PNG do not include center crosshair lines by default. The
+world origin is still the paper center; the reference axes are omitted so the
+printed sheet stays clean for detection.
+
 ## Scale-Correction Setup
 
 The board layout was generated with:
@@ -278,4 +282,3 @@ The updated synthetic test passed. It confirms that:
 - Known-intrinsics localization remains accurate under the harder render set.
 - No-intrinsics mode can estimate camera intrinsics from the first 10 far,
   oblique views and then recover valid poses for subsequent frames.
-
