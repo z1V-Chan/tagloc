@@ -24,12 +24,15 @@ The default nominal tag edge size is `0.045m`.
 ## Files
 
 - `generate_board.py`: generate the A4 board PDF, PNG preview, and layout JSON.
+- `generate_tag_sheet.py`: generate tiled multi-page PDFs for many individual
+  AprilTags, such as 3 x 2 tags per A4 page for cut-and-place workflows.
 - `generate_multi_tags.py`: generate one printable PDF/PNG page per tag and,
   optionally, an irregular table layout JSON.
 - `estimate_table_layout.py`: estimate an irregular coplanar tag layout from
   the first images, jointly optimizing intrinsics when no camera is provided.
 - `localize_camera.py`: estimate camera pose from real or synthetic images.
 - `export_scene.py`: export board markers and estimated camera poses to PLY.
+- `render_3d_preview.py`: render a static PNG preview of an estimated 3D scene.
 - `render_test.py`: render synthetic board images and validate localization.
 - `render_multi_tag_test.py`: render and validate an irregular coplanar
   multi-page tag layout with occlusions.
@@ -90,6 +93,37 @@ scale = measured_tag_size / nominal_tag_size
 ```
 
 This handles uniform print scaling. It does not model different X/Y stretch.
+
+## Generate Tiled Tag Sheets
+
+For cut-and-place workflows, generate many different tags in one PDF. The
+default command below creates 48 `DICT_APRILTAG_36h11` tags, arranged as
+3 rows x 2 columns per A4 page, for a total of 8 pages:
+
+```bash
+conda run -n rec python generate_tag_sheet.py \
+  --output-dir outputs/tag_sheets \
+  --count 72 \
+  --start-id 0 \
+  --rows 3 \
+  --cols 2 \
+  --tag-size-m 0.08
+```
+
+This creates:
+
+- `outputs/tag_sheets/apriltags_72_3x2_a4.pdf`
+- `outputs/tag_sheets/tag_sheet_manifest.json`
+- `outputs/tag_sheets/previews/page_01.png`, etc.
+
+Each cell includes a faint cut guide and a printed tag ID label below the tag.
+Use `--no-cut-guides` or `--no-labels` if you need a cleaner target. To change
+the tag range, use `--start-id` and `--count`. For example, starting at 48 with
+48 tags creates IDs `48-95`.
+
+Print the PDF at actual size / 100%. After printing, measure the black tag edge
+on paper and use that measured size for layout estimation or localization, for
+example `--tag-size-m 0.0465` for a measured 46.5mm edge.
 
 ## Irregular Multi-Page Tags
 
