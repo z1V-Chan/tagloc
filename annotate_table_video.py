@@ -125,6 +125,22 @@ def _open_writer(path: Path, codec: str, fps: float, size: tuple[int, int]) -> c
     return writer
 
 
+def _frame_ranges(frame_indices: list[int]) -> list[list[int]]:
+    if not frame_indices:
+        return []
+    ranges: list[list[int]] = []
+    start = prev = int(frame_indices[0])
+    for raw_index in frame_indices[1:]:
+        index = int(raw_index)
+        if index == prev + 1:
+            prev = index
+            continue
+        ranges.append([start, prev])
+        start = prev = index
+    ranges.append([start, prev])
+    return ranges
+
+
 def annotate_video(
     video_path: str | Path,
     layout: BoardLayout,
@@ -160,6 +176,7 @@ def annotate_video(
     used_counts: list[int] = []
     rms_values: list[float] = []
     failed_frames: list[dict[str, Any]] = []
+    zero_detection_frames: list[int] = []
     started = time.monotonic()
 
     try:
@@ -175,6 +192,8 @@ def annotate_video(
                 break
 
             detections = _detect_with_detector(detector, frame)
+            if not detections:
+                zero_detection_frames.append(input_index)
             pose = estimate_camera_pose(
                 layout,
                 detections,
@@ -195,7 +214,14 @@ def annotate_video(
                 if pose.reprojection_rms_px is not None:
                     rms_values.append(float(pose.reprojection_rms_px))
             else:
-                failed_frames.append({"frame_index": input_index, "reason": pose.reason, "detected_tags": len(detections)})
+                failed_frames.append(
+                    {
+                        "frame_index": input_index,
+                        "reason": pose.reason,
+                        "detected_tags": len(detections),
+                        "detected_ids": [int(det.tag_id) for det in detections],
+                    }
+                )
 
             processed += 1
             written += 1
@@ -220,7 +246,13 @@ def annotate_video(
         "written_frames": written,
         "pose_success_frames": success_count,
         "pose_failed_frames": processed - success_count,
-        "failed_frames": failed_frames[:100],
+        "zero_detection_frames": zero_detection_frames,
+        "zero_detection_frame_ranges": _frame_ranges(zero_detection_frames),
+        "failed_frames": failed_frames,
+        "failed_frame_ranges": _frame_ranges([int(frame["frame_index"]) for frame in failed_frames]),
+        "nonzero_detection_failed_frames": [
+            frame for frame in failed_frames if int(frame["detected_tags"]) > 0
+        ],
         "elapsed_sec": elapsed,
     }
     if detection_counts:
